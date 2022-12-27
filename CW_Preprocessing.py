@@ -82,7 +82,6 @@ for module in module_register_dict.values():
     print(module)
     session_df = pd.concat([session_df, module["session_details"]])
     atd_df = pd.concat([atd_df, module["combined_atd_df"]])
-    
 
 
 
