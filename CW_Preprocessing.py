@@ -11,39 +11,80 @@ for root, dirs, files in os.walk(os.path.abspath("cop504cwdata")):
         if file.endswith(".csv"):
             file_path = os.path.join(root, file)
             module_register_dict[count] = {
-                "name": file,
-                "df": pd.read_csv(file_path)
+                "module_name": file[:-18],
+                "org_df": pd.read_csv(file_path)
             }
             count += 1
 del count
 
-session_headers = ["session/week", "day/date", "time", "session_type", "lab_code"]
-first_cols = ["sid", "atd", ""]
+session_details_headers = ["semester", "week", "day", "date", "time", "session_type", "lab_code"]
+
+module_details = {
+    "module_id": [],
+    "module_name": []
+}
+
 for key, value in module_register_dict.items():
-    module_register_dict[key]["df_list"] = []
-    all_columns = value["df"].columns
-    sid = all_columns[0]
-    all_sessions = all_columns[1:]
+    module_details["module_id"].append(key)
+    module_details["module_name"].append(value["module_name"])
+
+    all_sessions_details_df = pd.DataFrame(columns=session_details_headers)
+    all_sessions_atd_df_list = []
+    org_df_columns = value["org_df"].columns
+    sid = org_df_columns[0]
+    all_sessions = org_df_columns[1:]
+
+    session_id = 1
+
     for session in all_sessions:
         session_details = session.strip().split("\n")
-        session_df = value["df"][[sid, session]]
-        session_df.rename(columns={sid: "sid", session: "atd"}, inplace=True)
-        for i, h in enumerate(session_headers):
-            try:
-                session_df[h] = session_details[i]
-            except:
-                session_df[h] = np.NAN
-       
-        module_register_dict[key]["df_list"].append(session_df)
+        session_week = session_details[0].strip().split(".")
+        day_date = session_details[1].strip().split(" ")
 
-    combined_df = pd.concat(module_register_dict[key]["df_list"])
-    combined_df[["day", "date"]] = combined_df["day/date"].str.split(" ", expand=True)
-    combined_df.drop("day/date", axis='columns', inplace=True)
-    combined_df[["session", "week"]] = combined_df["session/week"].str.split(".", expand=True)
-    combined_df.drop("session/week", axis='columns', inplace=True)
-    module_register_dict[key]["combined_df"] = combined_df
+        session_details_dict = {
+            "module_id": key,
+            "session_id": session_id,
+            "semester": session_week[0],
+            "week": session_week[1],
+            "day": day_date[0],
+            "date": day_date[1][1:-1],
+            "time": session_details[2],
+            "session_type": session_details[3],
+            "lab_code": session_details[4] if len(session_details) == 5 else None
 
-    del session_df, all_columns, all_sessions, combined_df
+        }
+
+        all_sessions_details_df = all_sessions_details_df.append(session_details_dict, ignore_index=True)
+        all_sessions_details_df[["module_id", "session_id"]] = all_sessions_details_df[["module_id", "session_id"]].astype(int)
+        all_sessions_details_df = all_sessions_details_df[["module_id", "session_id"] + session_details_headers]
+
+        session_atd_df = value["org_df"][[sid, session]]
+        session_atd_df.rename(columns={sid: "student_id", session: "atd"}, inplace=True)
+        session_atd_df["session_id"] = int(session_id)
+        all_sessions_atd_df_list.append(session_atd_df)
+
+        session_id += 1
+
+    all_sessions_combined_atd_df = pd.concat(all_sessions_atd_df_list)
+    all_sessions_combined_atd_df["module_id"] = int(key)
+    all_sessions_combined_atd_df = all_sessions_combined_atd_df[["student_id", "module_id", "session_id", "atd"]]
+
+    module_register_dict[key]["combined_atd_df"] = all_sessions_combined_atd_df
+    module_register_dict[key]["session_details"] = all_sessions_details_df
+
+module_details_df = pd.DataFrame(module_details)
+
+pre_processed_data = {}
+
+session_df = pd.DataFrame()
+atd_df = pd.DataFrame()
+for module in module_register_dict.values():
+    print(module)
+    session_df = pd.concat([session_df, module["session_details"]])
+    atd_df = pd.concat([atd_df, module["combined_atd_df"]])
+    
+
+
 
 
 
