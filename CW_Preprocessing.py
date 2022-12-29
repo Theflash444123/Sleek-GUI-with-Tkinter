@@ -15,34 +15,27 @@ for root, dirs, files in os.walk(os.path.abspath("cop504cwdata")):
                 "org_df": pd.read_csv(file_path)
             }
             count += 1
-del count
+del count, root, dirs, files, file, file_path
 
-session_details_headers = ["semester", "week", "day", "date", "time", "session_type", "lab_code"]
+session_details_headers = ["module", "session_id", "semester", "week", "day", "date", "time", "session_type", "lab_code"]
 
-module_details = {
-    "module_id": [],
-    "module_name": []
-}
-
-for key, value in module_register_dict.items():
-    module_details["module_id"].append(key)
-    module_details["module_name"].append(value["module_name"])
+for module_key, module_data in module_register_dict.items():
 
     all_sessions_details_df = pd.DataFrame(columns=session_details_headers)
-    all_sessions_atd_df_list = []
-    org_df_columns = value["org_df"].columns
+    org_df_columns = module_data["org_df"].columns
     sid = org_df_columns[0]
     all_sessions = org_df_columns[1:]
 
     session_id = 1
-
+    session_rename_dict = {sid: "sid"}
     for session in all_sessions:
+        session_rename_dict[session] = session_id
         session_details = session.strip().split("\n")
         session_week = session_details[0].strip().split(".")
         day_date = session_details[1].strip().split(" ")
 
         session_details_dict = {
-            "module_id": key,
+            "module": module_data["module_name"],
             "session_id": session_id,
             "semester": session_week[0],
             "week": session_week[1],
@@ -55,35 +48,31 @@ for key, value in module_register_dict.items():
         }
 
         all_sessions_details_df = all_sessions_details_df.append(session_details_dict, ignore_index=True)
-        all_sessions_details_df[["module_id", "session_id"]] = all_sessions_details_df[["module_id", "session_id"]].astype(int)
-        all_sessions_details_df = all_sessions_details_df[["module_id", "session_id"] + session_details_headers]
-
-        session_atd_df = value["org_df"][[sid, session]]
-        session_atd_df.rename(columns={sid: "student_id", session: "atd"}, inplace=True)
-        session_atd_df["session_id"] = int(session_id)
-        all_sessions_atd_df_list.append(session_atd_df)
+        all_sessions_details_df[["session_id"]] = all_sessions_details_df[["session_id"]].astype(int)
 
         session_id += 1
 
-    all_sessions_combined_atd_df = pd.concat(all_sessions_atd_df_list)
-    all_sessions_combined_atd_df["module_id"] = int(key)
-    all_sessions_combined_atd_df = all_sessions_combined_atd_df[["student_id", "module_id", "session_id", "atd"]]
+    preprocessed_df = module_data["org_df"].rename(columns=session_rename_dict)
+    preprocessed_df = preprocessed_df.dropna(axis=1, how='all')
+    preprocessed_df = preprocessed_df.replace("Ex", np.NAN)
+    preprocessed_df = preprocessed_df.replace("GPS", True)
+    preprocessed_df = preprocessed_df.replace("X", False)
+    module_data["preprocessed_df"] = preprocessed_df
+    module_data["session_details"] = all_sessions_details_df
 
-    module_register_dict[key]["combined_atd_df"] = all_sessions_combined_atd_df
-    module_register_dict[key]["session_details"] = all_sessions_details_df
-
-module_details_df = pd.DataFrame(module_details)
 
 pre_processed_data = {}
 
 session_df = pd.DataFrame()
-atd_df = pd.DataFrame()
 for module in module_register_dict.values():
-    print(module)
     session_df = pd.concat([session_df, module["session_details"]])
-    atd_df = pd.concat([atd_df, module["combined_atd_df"]])
 
-
+# connection = sqlite3.connect("database.db")
+# preprocessed_df.to_sql("cleaned_df", connection)
+# session_df.to_sql("session_df", connection)
+#
+# df2 = pd.read_sql_query("SELECT * FROM cleaned_df", connection)
+#
 
 
 
