@@ -33,10 +33,19 @@ for module_key, module_data in module_register_dict.items():
     clean_df = clean_df.replace("Ex", np.NAN)
     clean_df = clean_df.replace("GPS", True)
     clean_df = clean_df.replace("X", False)
+    clean_df = clean_df.dropna(thresh=1)
     module_data["clean_df"] = clean_df
     module_data["sessions_df"] = sessions_df
 
 connection = sqlite3.connect("database.db")
+
+for module_key, module_data in module_register_dict.items():
+    try:
+        module_data["clean_df"].to_sql(module_key + "_atd", connection)
+        module_data["sessions_df"].to_sql(module_key + "_sessions", connection)
+    except:
+        pass
+
 
 
 
