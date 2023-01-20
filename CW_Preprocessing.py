@@ -101,7 +101,7 @@ def get_modules_list():
     connection = sqlite3.connect("database.db")
     sql_query = """
     SELECT name FROM sqlite_master  
-    WHERE type='table';"""
+    WHERE type='table'"""
     cursor = connection.cursor()
     all_tables = cursor.execute(sql_query)
     modules = []
@@ -115,15 +115,17 @@ def get_modules_list():
 
 def get_sessions_sql(module_name):
     connection = sqlite3.connect("database.db")
-    sessions_query = f"SELECT * FROM {'sessions_' + module_name};"
+    sessions_query = f"SELECT * FROM {'sessions_' + module_name}"
     sessions_df = pd.read_sql(sessions_query, connection)
+    connection.close()
     return sessions_df
 
 
 def get_att_sql(module_name):
     connection = sqlite3.connect("database.db")
-    att_query = f"SELECT * FROM {'att_' + module_name};"
+    att_query = f"SELECT * FROM {'att_' + module_name}"
     att_df = pd.read_sql(att_query, connection)
+    connection.close()
     return att_df
 
 
@@ -140,6 +142,62 @@ def get_module_weeks(module_name):
     df = get_sessions_sql(module_name)
     weeks = list(df["week"].unique())
     return weeks
+
+
+class ModuleRecord:
+
+    def __init__(self, module_name):
+        self.module_name = module_name
+        self.sessions = self.get_sessions_sql()
+        self.att = self.get_att_sql()
+
+    def get_sessions_sql(self):
+        connection = sqlite3.connect("database.db")
+        sessions_query = f"SELECT * FROM {'sessions_' + self.module_name}"
+        sessions_df = pd.read_sql(sessions_query, connection)
+        connection.close()
+        return sessions_df
+
+    def get_att_sql(self):
+        connection = sqlite3.connect("database.db")
+        att_query = f"SELECT * FROM {'att_' + self.module_name}"
+        att_df = pd.read_sql(att_query, connection)
+        connection.close()
+        return att_df
+
+    def get_module_data_sql(self):
+        module_data = {
+            "name": self.module_name,
+            "att": get_att_sql(self.att),
+            "sessions": get_sessions_sql(self.sessions)
+        }
+        return module_data
+
+    def get_module_weeks(self):
+        df = self.sessions
+        weeks = list(df["week"].unique())
+        return weeks
+
+    def wide_to_long(self, sid="all"):
+        att_df = self.att
+        if not sid == "all":
+            att_df = att_df[att_df.sid.isin(sid)]
+        sessions_list = att_df.columns[1:]
+        long_att_df = pd.DataFrame()
+        for session in sessions_list:
+            session_att_df = att_df[["sid", session]]
+            session_att_df = session_att_df.rename(columns={session: "att"})
+            session_att_df["session_id"] = int(session)
+            session_att_df["module"] = self.module_name
+            session_att_df = session_att_df[["module", "session_id", "sid", "att"]]
+            long_att_df = pd.concat([long_att_df, session_att_df])
+
+        sessions_df = self.sessions
+        sessions_df = sessions_df[sessions_df.session_id.isin([int(x) for x in long_att_df.session_id])]
+        long_df = pd.merge(long_att_df, sessions_df, how="outer", on="session_id")
+
+        return long_df
+
 
 #########################   TESTING  ##################################
 
