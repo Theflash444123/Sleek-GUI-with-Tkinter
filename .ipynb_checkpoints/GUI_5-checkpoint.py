@@ -161,7 +161,7 @@ class ModuleTracking(tk.Frame):
         modules_selected = self.selection_bar.modules_dd.get_selected_items()
         print(modules_selected)
         if len(modules_selected) == 1:
-            weeks = CW_Preprocessing.get_module_weeks(modules_selected[0])
+            weeks = CW_Preprocessing.week_list(modules_selected[0])
             self.week_dd.update_list(weeks)
         elif len(modules_selected) == 0:
             messagebox.showinfo(title=None, message="Please Select a Module")
